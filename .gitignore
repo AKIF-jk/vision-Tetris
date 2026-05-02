@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+env/
+venv/
+.pytest_cache/
+
+# Project Specific
+/output/
+/input/
+*.log
+
+# OS Specific
+.DS_Store
+Thumbs.db
