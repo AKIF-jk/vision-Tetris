@@ -4,10 +4,11 @@ A powerful computer vision tool designed to analyze Tetris gameplay screenshots 
 
 ---
 
-## 🚀 Current Status: Phase 1 & 2 Complete
-We have successfully implemented the core vision pipeline. The system can now "see" and "understand" the game board with high precision.
+## 🚀 Current Status: Phase 1, 2 & 3 Complete ✅
 
-### ✅ Implemented Features (Phase 1 & 2)
+We have successfully implemented the complete vision pipeline with AI-driven decision making. The system can now "see" the game board, analyze it in real-time, and recommend the mathematically optimal move using a two-piece lookahead algorithm.
+
+### ✅ Implemented Features (Phase 1, 2 & 3)
 
 #### 1. Advanced DIP Preprocessing
 - **Adaptive Thresholding**: Uses Otsu's method to handle varied lighting and game themes.
@@ -46,14 +47,31 @@ We have successfully implemented the core vision pipeline. The system can now "s
 
 ## 📖 Usage
 
-Run the pipeline on a single screenshot:
+### Setup Virtual Environment (First Time Only)
 ```bash
-python3 main.py --input data/train/sample_screenshot.jpg
+source .venv/bin/activate
+```
+
+### Run the Pipeline on a Single Screenshot
+
+**Using the virtual environment:**
+```bash
+.venv/bin/python main.py --input data/train/sample_screenshot.jpg
+```
+
+Or if you've activated the venv:
+```bash
+python main.py --input data/train/sample_screenshot.jpg
 ```
 
 **Optional Flags:**
 - `--verbose`: Print detailed per-step timing and module status.
-- `--debug`: Save intermediate DIP images (masks, warped boards, etc.) to `output/debug/`.
+- `--debug`: Save intermediate DIP images (masks, warped boards, etc.) to `output/debug/` and display the AI scores matrix.
+
+**Full Example with All Options:**
+```bash
+.venv/bin/python main.py --input data/train/sample_screenshot.jpg --verbose --debug
+```
 
 ---
 
