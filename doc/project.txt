@@ -1,0 +1,53 @@
+DIP Semester Project
+Python · OpenCV
+Group Brief
+Tetris move advisor using image processing
+
+Updated scope — for review and alignment
+
+What we are building
+
+A vision-based Tetris advisor that reads a game screenshot, identifies the current board state, the active piece, and the next piece preview, then recommends the optimal rotation and drop column — with a scored confidence heatmap overlaid on the board. Video input is a stretch goal.
+
+What problem it solves
+
+Tetris requires fast spatial reasoning that humans struggle with under time pressure. Our system uses image processing to perceive the board exactly as a camera would, then applies a proven evaluation function (Dellacherie, 2003) to compute the mathematically best move — including two-piece lookahead for smarter long-term decisions.
+
+How we are building it
+
+Step 1
+Preprocessing — grayscale conversion, thresholding, noise removal on the input screenshot
+
+Step 2
+Grid extraction — contour detection to isolate the 20×10 board and parse each cell as filled or empty
+
+Step 3
+Piece detection — blob analysis + Hu moments to classify both the active piece and next piece preview
+
+Step 4
+Rotation candidates — affine transforms generate all valid rotations; each is scored across all drop columns using Dellacherie's 6-feature evaluation function with two-piece lookahead
+
+Step 5
+Output — best move highlighted on board + confidence heatmap showing scores across all columns
+
+Final deliverable
+
+Python script
+
+Takes screenshot as input, outputs annotated image
+
+Confidence heatmap
+
+Color overlay showing move scores per column
+
+Demo video
+
+Pipeline walkthrough on multiple game states
+
+Video mode stretch goal
+
+Frame-by-frame processing on a recorded game
+
+Evaluation function — Dellacherie (2003) via Algorta & Şimşek (2019)
+
+Tools: Python, OpenCV, NumPy
