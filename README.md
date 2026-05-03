@@ -4,28 +4,38 @@ A powerful computer vision tool designed to analyze Tetris gameplay screenshots 
 
 ---
 
-## 🚀 Current Status: Phase 1, 2 & 3 Complete ✅
+## 🚀 Current Status: Phases 1, 2 & 3 Complete ✅
 
 We have successfully implemented the complete vision pipeline with AI-driven decision making. The system can now "see" the game board, analyze it in real-time, and recommend the mathematically optimal move using a two-piece lookahead algorithm.
 
 ### ✅ Implemented Features (Phase 1, 2 & 3)
 
 #### 1. Advanced DIP Preprocessing
-- **Adaptive Thresholding**: Uses Otsu's method to handle varied lighting and game themes.
-- **Noise Reduction**: Gaussian filtering and morphological operations to clean up the binary mask.
+- **Adaptive Thresholding**: Uses Otsu's method to handle varied lighting.
+- **Noise Reduction**: Gaussian filtering and morphological operations.
 
 #### 2. Robust Board & Grid Analysis
-- **Perspective Extraction**: Isolates the board region and applies a warp transform to correct for slight skewing.
-- **Precision Grid Parser**: Divides the board into a 20x10 matrix, classifying each cell as filled or empty based on pixel density and color saturation.
+- **Perspective Extraction**: Isolates the board region and applies a warp transform.
+- **Precision Grid Parser**: Divides the board into a 20x10 matrix.
 
 #### 3. Deterministic Piece Detection
-- **Pattern Matching Engine**: Moves beyond unstable blob analysis by matching 4-cell grid connectivity against a canonical tetromino database.
-- **Active Piece Identification**: Locates and classifies the falling piece with ~100% accuracy on standard datasets.
-- **Next Piece Preview**: Scans the game's preview box to identify the upcoming tetromino, enabling future lookahead strategy.
+- **Pattern Matching Engine**: Matches grid connectivity against a tetromino database.
+- **Active & Next Piece Identification**: Locates and classifies both current and upcoming pieces.
 
-#### 4. High-Performance Pipeline
-- **Modular Architecture**: Clean separation between preprocessing, detection, and parsing.
-- **Speed**: Full frame analysis (detection + parsing) completes in **< 20ms** on standard hardware.
+#### 4. High-Performance AI Engine (Phase 3)
+- **Move Generator**: Generates all valid unique rotations and drop positions.
+- **Board Simulator**: Predicting board states after piece placement.
+- **Dellacherie Algorithm**: Implementation of the 6-feature scoring heuristic.
+- **Lookahead Engine**: Two-piece lookahead for globally optimal moves.
+
+---
+
+## ⏭ Next Phases: Visualization & Optimization (Phases 4 & 5)
+We are now entering the refinement and visualization stages:
+- **Phase 4**: Move recommendation overlays, heatmaps, and real-time video support.
+- **Phase 5**: Advanced search (Expectiminimax), performance tuning, and web dashboard.
+
+See [PHASE4_PHASE5_PLAN.md](PHASE4_PHASE5_PLAN.md) for the detailed roadmap.
 
 ---
 
@@ -72,15 +82,6 @@ python main.py --input data/train/sample_screenshot.jpg
 ```bash
 .venv/bin/python main.py --input data/train/sample_screenshot.jpg --verbose --debug
 ```
-
----
-
-## ⏭ Next Phase: Move Scoring & AI (Phase 3)
-The next development cycle will focus on the "brain" of the advisor:
-- **Move Generator**: Generating all valid unique rotations and drop positions.
-- **Board Simulator**: Predicting board states after piece placement.
-- **Dellacherie Algorithm**: Implementation of the 6-feature scoring heuristic (Holes, Wells, Transitions, etc.).
-- **Lookahead Engine**: Two-piece lookahead to find the globally optimal move.
 
 ---
 
