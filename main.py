@@ -20,6 +20,7 @@ from src.grid_parser     import parse_grid, print_grid
 from src.piece_detector  import detect_piece, detect_next_piece
 from src.engine          import best_move, print_scores_matrix
 from src.simulator       import simulate_drop, _get_column_offsets, _get_row_offsets
+from src.visualizer      import annotate_move, draw_heatmap, rotation_degrees
 
 
 def run_pipeline(input_path: str, debug: bool = None, verbose: bool = None):
@@ -70,10 +71,35 @@ def run_pipeline(input_path: str, debug: bool = None, verbose: bool = None):
         grid, shape, debug=False)
     if verbose: print(f"  ✓ Engine lookahead  {(time.time()-t)*1000:.0f}ms")
 
-    total = time.time() - t0
-    
     # ── Simulate the best move ─────────────────────────────────────────────
     board_after_move, lines_cleared = simulate_drop(grid, best_rotation, best_col)
+
+    # ── Step 7: Render final overlays ──────────────────────────────────────
+    t = time.time()
+    finite_scores = scores_matrix[np.isfinite(scores_matrix)]
+    best_score = float(finite_scores.max()) if finite_scores.size else None
+    rotation_label = rotation_degrees(shape, best_rotation)
+
+    os.makedirs(config.OUTPUT_DIR, exist_ok=True)
+    os.makedirs(config.HEATMAP_DIR, exist_ok=True)
+
+    annotated_path = os.path.join(config.OUTPUT_DIR, f"{prefix}_annotated.jpg")
+    heatmap_path = os.path.join(config.HEATMAP_DIR, f"{prefix}_heatmap.jpg")
+
+    annotate_move(
+        img,
+        best_rotation,
+        best_col,
+        bbox,
+        board=grid,
+        score=best_score,
+        rotation_label=rotation_label,
+        output_path=annotated_path,
+    )
+    draw_heatmap(img, scores_matrix, bbox, output_path=heatmap_path)
+    if verbose: print(f"  ✓ Visualization    {(time.time()-t)*1000:.0f}ms")
+
+    total = time.time() - t0
     
     # ── Final Output (Clean) ──────────────────────────────────────────────
     print(f"\n[PIPELINE] Detected: Active={piece_type} (pos={pos}), Next={next_type} | Time: {total*1000:.0f}ms")
@@ -104,6 +130,10 @@ def run_pipeline(input_path: str, debug: bool = None, verbose: bool = None):
         "best_rotation":     best_rotation,
         "best_col":          best_col,
         "scores_matrix":     scores_matrix,
+        "board_after_move":  board_after_move,
+        "best_score":        best_score,
+        "annotated_path":    annotated_path,
+        "heatmap_path":      heatmap_path,
     }
 
 
