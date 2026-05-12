@@ -77,6 +77,17 @@ def _blend_overlay(base_image: np.ndarray, overlay: np.ndarray, alpha: float) ->
     return cv2.addWeighted(base_image, 1.0, overlay, alpha, 0.0)
 
 
+def _red_yellow_green_palette(values_uint8: np.ndarray) -> np.ndarray:
+    """Map 0-255 values to a red->yellow->green BGR palette."""
+    values = values_uint8.astype(np.float32) / 255.0
+    red = np.where(values < 0.5, 255.0, (1.0 - (values - 0.5) * 2.0) * 255.0)
+    green = np.where(values < 0.5, values * 2.0 * 255.0, 255.0)
+    blue = np.zeros_like(values)
+
+    palette = np.stack([blue, green, red], axis=-1)
+    return np.clip(palette, 0, 255).astype(np.uint8)
+
+
 def _save_image(image: np.ndarray, output_path: Optional[str]) -> None:
     if not output_path:
         return
@@ -192,7 +203,7 @@ def draw_heatmap(
         normalized = np.zeros_like(column_scores, dtype=np.float32)
 
     palette_input = np.clip(normalized * 255.0, 0, 255).astype(np.uint8).reshape(-1, 1)
-    palette = cv2.applyColorMap(palette_input, cv2.COLORMAP_RdYlGn)
+    palette = _red_yellow_green_palette(palette_input)
 
     for col in range(scores_matrix.shape[1]):
         color = tuple(int(channel) for channel in palette[col, 0])
@@ -208,8 +219,8 @@ def draw_heatmap(
     cv2.rectangle(heatmap, (legend_x, legend_y), (legend_x + 190, legend_y + 72), (0, 255, 0), 1)
     cv2.putText(heatmap, "Heatmap", (legend_x + 10, legend_y + 20), cv2.FONT_HERSHEY_SIMPLEX, 0.55, config.TEXT_COLOR, 1, cv2.LINE_AA)
 
-    low_color = tuple(int(v) for v in cv2.applyColorMap(np.array([[0]], dtype=np.uint8), cv2.COLORMAP_RdYlGn)[0, 0])
-    high_color = tuple(int(v) for v in cv2.applyColorMap(np.array([[255]], dtype=np.uint8), cv2.COLORMAP_RdYlGn)[0, 0])
+    low_color = tuple(int(v) for v in _red_yellow_green_palette(np.array([[0]], dtype=np.uint8))[0, 0])
+    high_color = tuple(int(v) for v in _red_yellow_green_palette(np.array([[255]], dtype=np.uint8))[0, 0])
 
     cv2.rectangle(heatmap, (legend_x + 10, legend_y + 30), (legend_x + 36, legend_y + 48), low_color, -1)
     cv2.rectangle(heatmap, (legend_x + 10, legend_y + 50), (legend_x + 36, legend_y + 68), high_color, -1)
