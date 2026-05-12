@@ -159,7 +159,7 @@ def annotate_move(
 
     annotated = _blend_overlay(annotated, overlay, config.HEATMAP_ALPHA)
 
-    rotation_text = f"rotation: {rotation_label}°" if rotation_label is not None else "rotation: unknown"
+    rotation_text = f"rotation: {rotation_label} deg" if rotation_label is not None else "rotation: unknown"
     score_text = f"score: {score:.2f}" if score is not None else "score: n/a"
     panel_width = 250
     panel_x = min(max(10, bbox[2] + 12), max(10, annotated.shape[1] - panel_width - 10))
