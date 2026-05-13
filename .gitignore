@@ -11,6 +11,7 @@ venv/
 # Project Specific
 /output/
 /input/
+/doc/figures
 *.log
 
 # OS Specific

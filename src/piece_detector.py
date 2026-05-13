@@ -211,6 +211,10 @@ def detect_piece(board_img: np.ndarray,
     4. If no isolated 4-cell group found, try extracting a tetromino
        from the top of larger groups (piece touching settled blocks).
     5. Color-based fallback for J/L ambiguity if needed.
+
+    Returns:
+        (piece_type, shape_4x4, position, rotation, cells)
+        `cells` is a set of (row, col) tuples for the detected piece.
     """
     board_h, board_w = board_img.shape[:2]
     cw = board_w / config.GRID_COLS
@@ -266,7 +270,23 @@ def detect_piece(board_img: np.ndarray,
         _save_active_debug(board_img, cells, piece_type,
                            px_x, px_y, px_w, px_h, source, debug_prefix)
 
-    return piece_type, TETROMINO_SHAPES[piece_type].copy(), position, 0
+    actual_shape = _build_actual_shape(piece_type, cells)
+
+    return piece_type, TETROMINO_SHAPES[piece_type].copy(), position, 0, cells, actual_shape
+
+
+def _build_actual_shape(piece_type: str, cells: set) -> np.ndarray:
+    """Build the 4x4 shape matrix as it appears in the screenshot."""
+    if not cells:
+        return TETROMINO_SHAPES[piece_type].copy()
+    norm_cells = _normalize(cells)
+    canonical = TETROMINO_SHAPES[piece_type]
+    for k in range(4):
+        rotated = np.rot90(canonical, k=k)
+        rot_cells = {(r, c) for r in range(4) for c in range(4) if rotated[r, c]}
+        if _normalize(rot_cells) == norm_cells:
+            return rotated.copy()
+    return canonical.copy()
 
 
 def _fallback_piece(board_img, grid, save_debug, debug_prefix):
@@ -290,12 +310,12 @@ def _fallback_piece(board_img, grid, save_debug, debug_prefix):
             cv2.putText(d, "NO PIECE", (5, 30), cv2.FONT_HERSHEY_SIMPLEX,
                         0.8, (0, 0, 255), 2)
             cv2.imwrite(f"{config.DEBUG_DIR}/{debug_prefix}_8_active_piece.jpg", d)
-        return 'T', TETROMINO_SHAPES['T'].copy(), (0, 0), 0
+        return 'T', TETROMINO_SHAPES['T'].copy(), (0, 0), 0, set(), TETROMINO_SHAPES['T'].copy()
 
     scan_end = min(first_row + 4, config.GRID_ROWS)
     fp = np.argwhere(grid[first_row:scan_end, :] == 1)
     if len(fp) == 0:
-        return 'T', TETROMINO_SHAPES['T'].copy(), (0, 0), 0
+        return 'T', TETROMINO_SHAPES['T'].copy(), (0, 0), 0, set(), TETROMINO_SHAPES['T'].copy()
 
     # Collect the topmost cells
     cells_in_region = set()
@@ -308,14 +328,14 @@ def _fallback_piece(board_img, grid, save_debug, debug_prefix):
         if ptype:
             pos = (min(r for r, c in cells_in_region),
                    min(c for r, c in cells_in_region))
-            return ptype, TETROMINO_SHAPES[ptype].copy(), pos, 0
+            return ptype, TETROMINO_SHAPES[ptype].copy(), pos, 0, cells_in_region, _build_actual_shape(ptype, cells_in_region)
 
     # Try extracting from the top cells
     ptype, found = _extract_tetromino_from_top(cells_in_region)
     if ptype:
         pos = (min(r for r, c in found),
                min(c for r, c in found))
-        return ptype, TETROMINO_SHAPES[ptype].copy(), pos, 0
+        return ptype, TETROMINO_SHAPES[ptype].copy(), pos, 0, found, _build_actual_shape(ptype, found)
 
     # Last resort: use pixel-level Hu moments on topmost region
     rows_g = fp[:, 0] + first_row
@@ -330,7 +350,7 @@ def _fallback_piece(board_img, grid, save_debug, debug_prefix):
     ptype, _, _ = _classify_by_hu(roi)
     position = (first_row, int(cols_g.min()))
 
-    return ptype, TETROMINO_SHAPES[ptype].copy(), position, 0
+    return ptype, TETROMINO_SHAPES[ptype].copy(), position, 0, cells_in_region, _build_actual_shape(ptype, cells_in_region)
 
 
 # ---------------------------------------------------------------------------

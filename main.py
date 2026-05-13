@@ -16,7 +16,7 @@ import numpy as np
 import config
 from src.preprocess      import load_image, preprocess
 from src.board_detector  import detect_board, detect_next_piece_region
-from src.grid_parser     import parse_grid, print_grid
+from src.grid_parser     import parse_grid, print_grid, remove_active_piece_cells, validate_grid
 from src.piece_detector  import detect_piece, detect_next_piece
 from src.engine          import best_move, print_scores_matrix
 from src.simulator       import simulate_drop, _get_column_offsets, _get_row_offsets
@@ -54,10 +54,25 @@ def run_pipeline(input_path: str, debug: bool = None, verbose: bool = None):
 
     # ── Step 4: Detect active piece ────────────────────────────────────────
     t = time.time()
-    piece_type, shape, pos, rot = detect_piece(
+    piece_type, shape, pos, rot, cells, actual_shape = detect_piece(
         board, grid, save_debug=debug, debug_prefix=prefix)
     if verbose: print(f"  ✓ Active piece      {(time.time()-t)*1000:.0f}ms")
 
+    # ── Step 4b: Remove active piece cells from grid ───────────────────────
+    # The raw grid includes active piece blocks; remove them so the engine
+    # operates on settled blocks only.
+    t = time.time()
+    clean_grid = remove_active_piece_cells(grid, cells)
+    if verbose: print(f"  ✓ Grid cleaned      {(time.time()-t)*1000:.0f}ms")
+
+    # ── Step 4c: Validate grid using Tetris game logic ─────────────────────
+    t = time.time()
+    grid_valid, grid_reason = validate_grid(clean_grid, verbose=verbose)
+    if verbose:
+        status = "✓" if grid_valid else "✗"
+        print(f"  {status} Grid validation    {(time.time()-t)*1000:.0f}ms — {grid_reason}")
+    if not grid_valid:
+        print(f"  [WARNING] {grid_reason}")
     # ── Step 5: Detect next piece ──────────────────────────────────────────
     t = time.time()
     next_region = detect_next_piece_region(img, save_debug=debug, debug_prefix=prefix)
@@ -66,19 +81,20 @@ def run_pipeline(input_path: str, debug: bool = None, verbose: bool = None):
     if verbose: print(f"  ✓ Next piece        {(time.time()-t)*1000:.0f}ms")
 
     # ── Step 6: Two-piece lookahead decision engine ─────────────────────────
+    # Use clean_grid (without active piece) for accurate simulation
     t = time.time()
     best_rotation, best_col, scores_matrix = best_move(
-        grid, shape, debug=False)
+        clean_grid, shape, debug=False)
     if verbose: print(f"  ✓ Engine lookahead  {(time.time()-t)*1000:.0f}ms")
 
     # ── Simulate the best move ─────────────────────────────────────────────
-    board_after_move, lines_cleared = simulate_drop(grid, best_rotation, best_col)
+    board_after_move, lines_cleared = simulate_drop(clean_grid, best_rotation, best_col)
 
     # ── Step 7: Render final overlays ──────────────────────────────────────
     t = time.time()
     finite_scores = scores_matrix[np.isfinite(scores_matrix)]
     best_score = float(finite_scores.max()) if finite_scores.size else None
-    rotation_label = rotation_degrees(shape, best_rotation)
+    rotation_label = rotation_degrees(actual_shape, best_rotation)
 
     os.makedirs(config.OUTPUT_DIR, exist_ok=True)
     os.makedirs(config.HEATMAP_DIR, exist_ok=True)
@@ -91,7 +107,7 @@ def run_pipeline(input_path: str, debug: bool = None, verbose: bool = None):
         best_rotation,
         best_col,
         bbox,
-        board=grid,
+        board=clean_grid,
         score=best_score,
         rotation_label=rotation_label,
         output_path=annotated_path,
@@ -106,9 +122,15 @@ def run_pipeline(input_path: str, debug: bool = None, verbose: bool = None):
     print(f"[ENGINE]   Best move: rotation col={best_col}  |  Lines cleared: {lines_cleared}")
     
     print(f"\n{'-'*60}")
-    print(f"  ORIGINAL BOARD STATE")
+    print(f"  SETTLED BOARD STATE (active piece removed)")
     print(f"{'-'*60}")
-    print_grid(grid)
+    print_grid(clean_grid)
+
+    if debug:
+        print(f"\n{'-'*60}")
+        print(f"  RAW BOARD STATE (including active piece)")
+        print(f"{'-'*60}")
+        print_grid(grid)
     
     print(f"\n{'-'*60}")
     print(f"  BOARD STATE AFTER BEST MOVE (col={best_col})")
@@ -121,10 +143,12 @@ def run_pipeline(input_path: str, debug: bool = None, verbose: bool = None):
         print_scores_matrix(scores_matrix)
 
     return {
-        "grid":              grid,
+        "grid":              clean_grid,
+        "raw_grid":          grid,
         "piece_type":        piece_type,
         "piece_shape":       shape,
         "piece_pos":         pos,
+        "piece_cells":       cells,
         "next_type":         next_type,
         "next_shape":        next_shape,
         "best_rotation":     best_rotation,
@@ -132,6 +156,8 @@ def run_pipeline(input_path: str, debug: bool = None, verbose: bool = None):
         "scores_matrix":     scores_matrix,
         "board_after_move":  board_after_move,
         "best_score":        best_score,
+        "grid_valid":        grid_valid,
+        "grid_reason":       grid_reason,
         "annotated_path":    annotated_path,
         "heatmap_path":      heatmap_path,
     }

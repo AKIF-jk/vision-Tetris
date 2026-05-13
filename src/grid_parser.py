@@ -9,6 +9,8 @@
 import cv2
 import numpy as np
 import os, sys
+from collections import deque
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import config
 
@@ -116,3 +118,82 @@ def print_grid(grid: np.ndarray):
         print("  |" + "".join(" X|" if grid[row,c]==1 else "  |"
                                for c in range(config.GRID_COLS)))
     print("  +" + "--+" * config.GRID_COLS)
+
+
+def remove_active_piece_cells(grid: np.ndarray, cells: set) -> np.ndarray:
+    """
+    Remove active piece cells from the grid, returning only settled blocks.
+
+    Args:
+        grid: 20x10 binary occupancy grid (may include active piece cells).
+        cells: Set of (row, col) tuples representing active piece cells.
+
+    Returns:
+        Clean 20x10 grid with active piece cells set to 0.
+    """
+    clean = grid.copy()
+    for r, c in cells:
+        if 0 <= r < config.GRID_ROWS and 0 <= c < config.GRID_COLS:
+            clean[r, c] = 0
+    return clean
+
+
+def validate_grid(grid: np.ndarray, verbose: bool = False) -> tuple:
+    """
+    Validate that the grid represents a physically possible Tetris board state
+    using Tetris game logic.
+
+    In standard Tetris, blocks are placed from above and settle onto existing
+    blocks or the floor. After line clears, all rows above shift down.
+    This means every filled cell must be supported — either by the bottom row,
+    by a filled cell directly below, or through a connected path of filled
+    cells that ultimately reaches the bottom.
+
+    Checks:
+        1. Correct dimensions (20x10).
+        2. No floating blocks: every filled cell must be connected to the
+           bottom row via a 4-directional path of adjacent filled cells.
+
+    Returns:
+        (is_valid: bool, reason: str)
+    """
+    if grid.shape != (config.GRID_ROWS, config.GRID_COLS):
+        return False, f"Invalid dimensions: {grid.shape}"
+
+    rows, cols = grid.shape
+    visited = np.zeros_like(grid, dtype=bool)
+    q = deque()
+
+    # Seed BFS from bottom-row filled cells
+    for c in range(cols):
+        if grid[rows - 1, c] == 1:
+            visited[rows - 1, c] = True
+            q.append((rows - 1, c))
+
+    # Also seed every filled cell that has a filled cell directly below
+    # (these are supported from beneath)
+    for r in range(rows - 1):
+        for c in range(cols):
+            if grid[r, c] == 1 and grid[r + 1, c] == 1 and not visited[r, c]:
+                visited[r, c] = True
+                q.append((r, c))
+
+    # BFS through all adjacent filled cells
+    while q:
+        r, c = q.popleft()
+        for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+            nr, nc = r + dr, c + dc
+            if 0 <= nr < rows and 0 <= nc < cols and grid[nr, nc] == 1 and not visited[nr, nc]:
+                visited[nr, nc] = True
+                q.append((nr, nc))
+
+    # Any unvisited filled cell is floating — impossible in real Tetris
+    unvisited = np.where((grid == 1) & (~visited))
+    if len(unvisited[0]) > 0:
+        floating = list(zip(unvisited[0].tolist(), unvisited[1].tolist()))
+        if verbose:
+            for r, c in floating[:10]:
+                print(f"  [validate_grid] Floating cell at ({r}, {c})")
+        return False, f"Grid has {len(floating)} floating block(s) — physically impossible in Tetris"
+
+    return True, "Valid Tetris board state"

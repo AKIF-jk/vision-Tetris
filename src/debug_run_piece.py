@@ -15,5 +15,5 @@ if img is None:
     sys.exit(2)
 
 grid = parse_grid(img, save_debug=True, debug_prefix='test_img')
-res = detect_piece(img, grid, save_debug=True, debug_prefix='test_img')
-print('Detection result:', res)
+piece_type, shape, pos, rot, cells, actual_shape = detect_piece(img, grid, save_debug=True, debug_prefix='test_img')
+print(f'Detection: type={piece_type}, pos={pos}, rot={rot}, cells={cells}')
