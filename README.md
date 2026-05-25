@@ -305,35 +305,40 @@ flowchart TD
 
 ## Project Structure
 
-```mermaid
-mindmap
-  root(("vision-Tetris"))
-    main.py
-    config.py
-    requirements.txt
-    src
-      preprocess.py
-      board_detector.py
-      grid_parser.py
-      piece_detector.py
-      move_generator.py
-      simulator.py
-      scorer.py
-      engine.py
-      visualizer.py
-    batch_process.py
-    test_single.py
-    test_validation.py
-    analyze_results.py
-    generate_figures.py
-    data
-      train
-      test
-      valid
-    doc
-      figures
-      tetris_advisor_report.pdf
-      tetris_advisor_report.docx
+```
+vision-Tetris/
+├── main.py                        # Entry point — orchestrates the 7-stage pipeline
+├── config.py                      # All tunable parameters in one place
+├── requirements.txt               # opencv-python, numpy, matplotlib, Pillow
+│
+├── src/
+│   ├── preprocess.py              # Load, grayscale, Gaussian blur, Otsu
+│   ├── board_detector.py          # Perspective warp, board + next-piece extraction
+│   ├── grid_parser.py             # HSV masking, cell fill-ratio, 20x10 grid, validation
+│   ├── piece_detector.py          # Connected-components, pattern matching, Hu moments
+│   ├── move_generator.py          # rot90 rotations, dedup, column validation
+│   ├── simulator.py               # Gravity drop, collision, line clear
+│   ├── scorer.py                  # Dellacherie 6-feature heuristic
+│   ├── engine.py                  # Move evaluation, two-piece lookahead
+│   └── visualizer.py              # Ghost piece, column highlight, heatmap
+│
+├── batch_process.py               # Batch all images -> stitched composites
+├── test_single.py                 # Single-image test w/ optional ground truth
+├── test_validation.py             # Full validation against annotations
+├── analyze_results.py             # Stats, confusion matrix from validation CSV
+├── generate_figures.py            # Generate all 19 report figures
+│
+├── data/                          # 154 images (Roboflow, MIT License)
+│   ├── train/                     # 109 images + _annotations.csv
+│   ├── test/                      # 15 images
+│   └── valid/                     # 30 images
+│
+├── doc/
+│   ├── figures/                   # 19 report figures (FIG1-FIG19)
+│   ├── tetris_advisor_report.pdf
+│   └── tetris_advisor_report.docx
+│
+└── README.md
 ```
 
 ### Module Map
