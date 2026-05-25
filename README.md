@@ -1,373 +1,409 @@
+<div align="center">
+
 # Vision-Based Tetris Advisor
 
-A computer vision system that analyzes Tetris gameplay screenshots, extracts the board state, identifies pieces, and computes the optimal move using a Dellacherie-scored two-piece lookahead AI engine. Built as a Digital Image Processing (DIP) course project.
+**A 7-stage computer vision pipeline that reads Tetris screenshots and computes the optimal move using a Dellacherie-scored AI engine**
 
-![Pipeline](doc/pipeline.png)
-*Input screenshot → annotated output with ghost piece and confidence heatmap*
-
----
-
-## Table of Contents
-
-- [Overview](#overview)
-- [Pipeline](#pipeline)
-- [Installation](#installation)
-- [Usage](#usage)
-- [Image Processing Techniques](#image-processing-techniques)
-- [AI Engine](#ai-engine)
-- [Output](#output)
-- [Project Structure](#project-structure)
-- [Results](#results)
-- [Configuration](#configuration)
+[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
+[![OpenCV 4.x](https://img.shields.io/badge/OpenCV-4.x-green.svg)](https://opencv.org/)
+[![NumPy](https://img.shields.io/badge/NumPy-1.26-orange.svg)](https://numpy.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Accuracy](https://img.shields.io/badge/Accuracy-~100%25-success.svg)]()
+[![DIP Project](https://img.shields.io/badge/DIP-Course%20Project-ff69b4.svg)]()
 
 ---
 
-## Overview
+[Pipeline](#pipeline) ~ [Installation](#installation) ~ [Usage](#usage) ~ [Image Processing](#image-processing-techniques) ~ [AI Engine](#ai-engine) ~ [Output](#output) ~ [Project Structure](#project-structure) ~ [Results](#results)
 
-The system takes a Tetris gameplay screenshot and performs seven stages of processing:
-
-1. **Preprocess** — Grayscale conversion, Gaussian blur, Otsu binarization
-2. **Board Detection** — Perspective warp to extract the playfield
-3. **Grid Parsing** — HSV color masking, cell fill-ratio analysis, 20×10 grid extraction
-4. **Piece Detection** — Connected-component matching + Hu moments fallback
-5. **AI Engine** — Move generation, board simulation, Dellacherie scoring, two-piece lookahead
-6. **Visualization** — Ghost piece overlay, column highlight, confidence heatmap
+</div>
 
 ---
 
 ## Pipeline
 
+The pipeline processes a Tetris screenshot through six stages — from raw pixels to an annotated optimal-move overlay:
+
+```mermaid
+flowchart TD
+    A["Input Screenshot<br/>(640x640 RGB)"] --> B["1. Preprocess<br/>Gray + Blur + Otsu"]
+    B --> C["2. Board Detection<br/>Perspective Warp"]
+    C --> D["3. Grid Parsing<br/>HSV Masking + 20x10 Grid"]
+    D --> E["4. Piece Detection<br/>Connected-Components + Hu Moments"]
+    E --> F["5. AI Engine<br/>rot90 + Simulation + Dellacherie"]
+    F --> G["6. Visualization<br/>Ghost Piece + Heatmap"]
+    G --> H["Annotated Output<br/>+ Confidence Heatmap"]
+
+    style A fill:#1a1a2e,stroke:#e94560,stroke-width:2px,color:#fff
+    style B fill:#16213e,stroke:#e94560,stroke-width:2px,color:#fff
+    style C fill:#16213e,stroke:#e94560,stroke-width:2px,color:#fff
+    style D fill:#16213e,stroke:#e94560,stroke-width:2px,color:#fff
+    style E fill:#16213e,stroke:#e94560,stroke-width:2px,color:#fff
+    style F fill:#0f3460,stroke:#e94560,stroke-width:2px,color:#fff
+    style G fill:#533483,stroke:#e94560,stroke-width:2px,color:#fff
+    style H fill:#e94560,stroke:#fff,stroke-width:2px,color:#fff
 ```
-Input Screenshot
-      │
-      ▼
-┌─────────────────┐
-│   Preprocess    │  cv2.cvtColor (BGR→Gray), cv2.GaussianBlur,
-│                 │  cv2.threshold (Otsu)
-└────────┬────────┘
-         ▼
-┌─────────────────┐
-│ Board Detection │  cv2.getPerspectiveTransform,
-│                 │  cv2.warpPerspective
-└────────┬────────┘
-         ▼
-┌─────────────────┐
-│   Grid Parsing  │  cv2.cvtColor (BGR→HSV), cv2.inRange,
-│                 │  cv2.bitwise_or, cell fill-ratio ≥ 50%
-└────────┬────────┘
-         ▼
-┌─────────────────┐
-│ Piece Detection │  Connected-component (BFS) + pattern matching
-│                 │  → Hu moments fallback (cv2.moments, cv2.HuMoments)
-│                 │  → Morphological cleanup (cv2.morphologyEx)
-└────────┬────────┘
-         ▼
-┌─────────────────┐
-│   AI Engine     │  np.rot90 rotations, gravity simulation,
-│                 │  Dellacherie 6-feature scoring, lookahead
-└────────┬────────┘
-         ▼
-┌─────────────────┐
-│  Visualization  │  cv2.fillConvexPoly, cv2.addWeighted,
-│                 │  cv2.putText, Red-Yellow-Green heatmap
-└────────┬────────┘
-         ▼
-Annotated Output + Heatmap
-```
+
+| Stage | Module | Key OpenCV Ops |
+|-------|--------|----------------|
+| **1. Preprocess** | `src/preprocess.py` | `cvtColor`, `GaussianBlur`, `threshold` (OTSU) |
+| **2. Board Detection** | `src/board_detector.py` | `getPerspectiveTransform`, `warpPerspective` |
+| **3. Grid Parsing** | `src/grid_parser.py` | `cvtColor` (HSV), `inRange`, `bitwise_or` |
+| **4. Piece Detection** | `src/piece_detector.py` | Custom BFS + `moments` / `HuMoments` |
+| **5. AI Engine** | `src/engine.py` | `np.rot90`, vectorized simulation + heuristics |
+| **6. Visualization** | `src/visualizer.py` | `fillConvexPoly`, `addWeighted`, `putText` |
 
 ---
 
 ## Installation
 
-### Prerequisites
-
-- Python 3.9+
-- OpenCV 4.x
-- NumPy
-
-### Setup
-
 ```bash
-# Clone the repository
 git clone https://github.com/your-username/vision-Tetris.git
 cd vision-Tetris
-
-# Create virtual environment
 python3 -m venv .venv
-
-# Install dependencies
 .venv/bin/pip install -r requirements.txt
 ```
 
-### Dependencies
+| Package | Version | Role |
+|---------|---------|------|
+| `opencv-python` | 4.9.0.80 | Image processing, warping, visualization |
+| `numpy` | 1.26.4 | Grid operations, rotations, vectorized scoring |
+| `matplotlib` | 3.8.4 | Heatmap color mapping |
+| `Pillow` | 10.3.0 | Alternative I/O, format support |
 
-```
-opencv-python==4.9.0.80
-numpy==1.26.4
-matplotlib==3.8.4
-Pillow==10.3.0
-```
+No PyTorch, no TensorFlow, no GPU.
 
 ---
 
 ## Usage
 
-### Process a single screenshot
-
 ```bash
+# Process a single screenshot
 .venv/bin/python main.py --input data/train/sample.jpg
-```
 
-### Options
+# With debug output + timing logs
+.venv/bin/python main.py --input data/train/sample.jpg --debug --verbose
+
+# Batch process all images
+.venv/bin/python batch_process.py
+
+# Test with ground truth comparison
+.venv/bin/python test_single.py data/train/sample.jpg --show-ground-truth
+
+# Full validation against all annotations
+.venv/bin/python test_validation.py --verbose --save-results
+
+# Analyze validation results
+.venv/bin/python analyze_results.py
+```
 
 | Flag | Description |
-|---|---|
-| `--input PATH` | Path to screenshot (required) |
-| `--debug` | Save intermediate DIP debug images to `output/debug/` |
+|------|-------------|
+| `--input PATH` | Path to screenshot **(required)** |
+| `--debug` | Save intermediate debug images to `output/debug/` |
 | `--verbose` | Print per-step timing and module logs |
-
-```bash
-# Full example
-.venv/bin/python main.py --input data/train/sample.jpg --debug --verbose
-```
-
-### Batch process all images
-
-```bash
-.venv/bin/python batch_process.py
-```
-
-Processes every image in `data/`, saves stitched composites (original + annotated + heatmap) to `output/results/`.
-
-### Test a single image
-
-```bash
-.venv/bin/python test_single.py data/train/sample.jpg
-```
-
-### Run validation against ground truth
-
-```bash
-.venv/bin/python test_validation.py --verbose --save-results
-```
-
-Tests all images in `data/train/` against `_annotations.csv`, reports per-class accuracy and confusion matrix.
 
 ---
 
 ## Image Processing Techniques
 
-### 1. Grayscale Conversion (`cv2.cvtColor`)
+The pipeline demonstrates **12 core DIP techniques**. Below each stage is shown on an actual game screenshot.
 
-Reduces 3-channel BGR to single-channel intensity. Eliminates color variability, simplifies thresholding, and reduces compute.
+### 1–3. Preprocessing (Grayscale → Blur → Otsu)
 
-### 2. Gaussian Blur (`cv2.GaussianBlur`)
+<div align="center">
+    <img src="doc/figures/FIG2_RAW_VS_GRAYSCALE_VS_BLUR.png" alt="Grayscale and Blur" width="80%">
+</div>
 
-5×5 kernel convolution that suppresses high-frequency sensor noise and aliasing artifacts before binarization, preventing spurious pixels.
+Otsu's method automatically determines the optimal threshold by maximizing between-class variance:
 
-### 3. Otsu Thresholding (`cv2.threshold` + `THRESH_OTSU`)
+<div align="center">
+    <img src="doc/figures/FIG3_OTSU_HISTOGRAM.png" alt="Otsu Histogram" width="45%">
+    <img src="doc/figures/FIG4_OTSU_BINARY.png" alt="Otsu Binary" width="45%">
+</div>
 
-Automatically determines the optimal threshold by maximizing between-class variance of pixel intensities. Handles varied lighting conditions without manual tuning.
+### 4–5. HSV Color Space & InRange Masking
 
-### 4. HSV Color Space & Color Thresholding (`cv2.cvtColor` BGR→HSV + `cv2.inRange`)
+HSV separates hue from saturation/value, making segmentation robust to brightness variations.
 
-HSV separates hue from saturation/value, making color-based segmentation robust to brightness variations. Two complementary masks detect:
-- **Colored blocks** (high saturation, moderate-high value)
-- **Gray/white blocks** (low saturation, high value — for ghost pieces)
+<div align="center">
+    <img src="doc/figures/FIG5_HSV_CHANNELS.png" alt="HSV Channels" width="45%">
+    <img src="doc/figures/FIG6_INRANGE_MASKS.png" alt="InRange Masks" width="45%">
+</div>
 
-### 5. Bitwise Operations (`cv2.bitwise_or`)
+### 6. Perspective Transform
 
-Combines the colored and gray-block masks into a single unified block mask.
+Computes a homography from known board corners to a rectangle, warping the board to correct perspective skew.
 
-### 6. Perspective Transform (`cv2.getPerspectiveTransform` + `cv2.warpPerspective`)
+<div align="center">
+    <img src="doc/figures/FIG7_PERSPECTIVE_WARP.png" alt="Perspective Warp" width="80%">
+</div>
 
-Computes a homography from known board corners to a rectangle, then warps the board region to correct perspective skew. Also applied to the next-piece preview region.
+### 7. Morphological Operations
 
-### 7. Morphological Operations (`cv2.morphologyEx`)
+Closing (dilation → erosion) fills holes; opening (erosion → dilation) removes noise.
 
-- **Closing** (dilation → erosion): Fills small holes inside next-piece blocks
-- **Opening** (erosion → dilation): Removes spurious noise pixels from the mask
+<div align="center">
+    <img src="doc/figures/FIG8_MORPHOLOGICAL.png" alt="Morphological Operations" width="80%">
+</div>
 
-### 8. Cell Fill-Ratio Analysis
+### 8–10. Grid Parsing & Cell Analysis
 
-Rather than classifying cells by a single pixel, examines all pixels in each cell interior. A cell is marked filled if ≥50% of its pixels are block pixels — making classification robust to partial shading, thin grid lines, and anti-aliasing.
+Cell fill-ratio (≥50% threshold) converts the raw mask to a 20×10 binary grid:
 
-### 9. Connected-Component Analysis (custom BFS)
+<div align="center">
+    <img src="doc/figures/FIG9_CELL_FILL_RATIO.png" alt="Cell Fill Ratio" width="45%">
+    <img src="doc/figures/FIG10_GRID_OVERLAY.png" alt="Grid Overlay" width="45%">
+</div>
 
-Labels groups of adjacent filled cells using 4-directional traversal on the 20×10 grid. Groups of exactly 4 cells are matched against a tetromino pattern database. For merged groups, DFS extracts valid 4-cell subsets from the top.
+### 11. Connected Components & Piece Detection
 
-### 10. Hu Moments (`cv2.moments` → `cv2.HuMoments`)
+4-directional BFS labels cell groups; 4-cell groups are matched against a database of all 21 tetromino rotations:
 
-Seven translation-, scale-, and rotation-invariant shape descriptors. Serves as a fallback classifier when grid-pattern matching fails — compares against pre-computed reference values using sum-of-absolute-differences.
+<div align="center">
+    <img src="doc/figures/FIG11_CONNECTED_COMPONENTS.png" alt="Connected Components" width="45%">
+    <img src="doc/figures/FIG12_ACTIVE_PIECE.png" alt="Active Piece Detection" width="45%">
+</div>
 
-### 11. Weighted Image Blending (`cv2.addWeighted`)
+The next-piece preview region is detected using the same grid-cell matching:
 
-Blends annotation overlays (ghost piece, column highlight, heatmap) with the original screenshot at configurable opacity (α = 0.4).
+<div align="center">
+    <img src="doc/figures/FIG13_NEXT_PIECE.png" alt="Next Piece Detection" width="80%">
+</div>
 
-### 12. Drawing Primitives
+### Complete Technique Reference
 
-`cv2.rectangle`, `cv2.putText`, `cv2.fillConvexPoly`, `cv2.polylines`, `cv2.line` for rendering bounding boxes, text annotations, ghost pieces, column highlights, grid lines, and heatmap bars.
+| # | Technique | OpenCV Function | Purpose |
+|---|-----------|-----------------|---------|
+| 1 | **Grayscale Conversion** | `cvtColor` (BGR→GRAY) | Reduce 3-channel to 1-channel intensity |
+| 2 | **Gaussian Blur** | `GaussianBlur` (5×5) | Suppress sensor noise before thresholding |
+| 3 | **Otsu Thresholding** | `threshold` + `THRESH_OTSU` | Automatic binarization |
+| 4 | **HSV Color Segmentation** | `cvtColor` + `inRange` | Robust color detection |
+| 5 | **Bitwise Operations** | `bitwise_or` | Merge colored + gray block masks |
+| 6 | **Perspective Transform** | `getPerspectiveTransform` + `warpPerspective` | Correct board skew |
+| 7 | **Morphological Operations** | `morphologyEx` (close/open) | Fill holes, remove noise |
+| 8 | **Cell Fill-Ratio Analysis** | *(custom)* | ≥50% pixel threshold per cell |
+| 9 | **Connected Components** | *(custom BFS)* | Label 4-cell groups on 20×10 grid |
+| 10 | **Hu Moments** | `moments` → `HuMoments` | Rotation/scale-invariant shape fallback |
+| 11 | **Alpha Blending** | `addWeighted` (α=0.4) | Composite annotations over original |
+| 12 | **Drawing Primitives** | `rectangle`, `putText`, `fillConvexPoly`, `polylines` | Render overlays |
 
 ---
 
 ## AI Engine
 
-### Move Generation (`src/move_generator.py`)
+### Move Generation & Simulation
 
-Generates all unique rotations of the current tetromino via `np.rot90`, deduplicates identical shapes, and computes valid drop columns for each rotation.
+```mermaid
+flowchart LR
+    A["Active Piece<br/>Shape Matrix"] --> B["Generate Rotations<br/>np.rot90"]
+    B --> C["Deduplicate<br/>Identical Shapes"]
+    C --> D["Valid Columns<br/>per Rotation"]
+    D --> E["Gravity Drop<br/>Simulation"]
+    E --> F["Line Clear<br/>Detection"]
+    F --> G["Score Board<br/>Dellacherie"]
 
-### Board Simulation (`src/simulator.py`)
+    style A fill:#1a1a2e,stroke:#e94560,color:#fff
+    style B fill:#16213e,stroke:#e94560,color:#fff
+    style C fill:#16213e,stroke:#e94560,color:#fff
+    style D fill:#16213e,stroke:#e94560,color:#fff
+    style E fill:#0f3460,stroke:#e94560,color:#fff
+    style F fill:#0f3460,stroke:#e94560,color:#fff
+    style G fill:#533483,stroke:#e94560,color:#fff
+```
 
-Simulates piece placement: gravity drop with collision detection, piece merging, and line clearing. Returns the resulting board state.
+### Dellacherie Scoring
 
-### Dellacherie Scoring (`src/scorer.py`)
+```mermaid
+flowchart TD
+    subgraph Features["Six Dellacherie Features"]
+        LH["- Landing Height<br/>Lower is better"]
+        EC["+ Eroded Cells<br/>Higher is better"]
+        RT["- Row Transitions<br/>Lower is better"]
+        CT["- Column Transitions<br/>Lower is better"]
+        HO["- 4 x Holes<br/>Lower is better"]
+        CW["- Cumulative Wells<br/>Lower is better"]
+    end
 
-Scores each resulting board state using six heuristic features:
+    Features --> SUM["Score = Sum of All Features"]
+    SUM --> BEST["Best (Rot, Col) → Execute"]
 
-| Feature | Description |
-|---|---|
-| **Landing Height** | Height of the placed piece's highest point (lower is better) |
-| **Eroded Cells** | Number of lines cleared × number of cells contributed (reward line clears) |
-| **Row Transitions** | Number of filled-to-empty or empty-to-filled transitions across all rows |
-| **Column Transitions** | Same as row transitions but along columns |
-| **Holes** | Empty cells with at least one filled cell above them |
-| **Cumulative Wells** | Deep vertical gaps weighted by depth |
+    style LH fill:#533483,stroke:#e94560,color:#fff
+    style EC fill:#0f3460,stroke:#e94560,color:#fff
+    style RT fill:#16213e,stroke:#e94560,color:#fff
+    style CT fill:#16213e,stroke:#e94560,color:#fff
+    style HO fill:#1a1a2e,stroke:#e94560,color:#fff
+    style CW fill:#1a1a2e,stroke:#e94560,color:#fff
+    style SUM fill:#e94560,stroke:#fff,color:#fff
+    style BEST fill:#e94560,stroke:#fff,color:#fff
+```
 
-### Two-Piece Lookahead (`src/engine.py`)
+<div align="center">
+    <img src="doc/figures/FIG16_DELLACHERIE_RADAR.png" alt="Dellacherie Radar" width="60%">
+</div>
 
-Evaluates the current piece and the next piece together, finding the sequence of two moves that produces the best combined board state. The best move for the current piece is selected and returned.
+### Two-Piece Lookahead
+
+```mermaid
+flowchart TD
+    CP["Current Piece<br/>All Rotations x Columns"] --> S1["Simulate Placement"]
+    S1 --> NP["Next Piece<br/>All Rotations x Columns"]
+    NP --> S2["Simulate Placement"]
+    S2 --> EVAL["Score Combined<br/>Board State"]
+    EVAL --> PICK["Pick Best<br/>(Current Rot, Col)"]
+
+    style CP fill:#1a1a2e,stroke:#e94560,color:#fff
+    style S1 fill:#16213e,stroke:#e94560,color:#fff
+    style NP fill:#16213e,stroke:#e94560,color:#fff
+    style S2 fill:#0f3460,stroke:#e94560,color:#fff
+    style EVAL fill:#533483,stroke:#e94560,color:#fff
+    style PICK fill:#e94560,stroke:#fff,color:#fff
+```
 
 ---
 
 ## Output
 
-### Annotated Image
+### Annotated Screenshot
 
-![Annotated](doc/annotated_example.jpg)
+<div align="center">
+    <img src="doc/figures/FIG14_MOVE_ANNOTATION.png" alt="Move Annotation" width="80%">
+</div>
 
-The annotated screenshot shows:
-- **Green column highlight** — the recommended column for placement
-- **Ghost piece** — semi-transparent piece at the landing position
-- **Info panel** — rotation angle, column, and Dellacherie score
+| Element | Description |
+|---------|-------------|
+| **Green column highlight** | The recommended drop column |
+| **Ghost piece** | Semi-transparent overlay at landing position |
+| **Info panel** | Rotation angle, column number, Dellacherie score |
 
 ### Confidence Heatmap
 
-![Heatmap](doc/heatmap_example.jpg)
+<div align="center">
+    <img src="doc/figures/FIG15_CONFIDENCE_HEATMAP.png" alt="Confidence Heatmap" width="60%">
+</div>
 
-A per-column heatmap overlay using a Red→Yellow→Green palette:
-- **Green** — high-scoring columns (preferred)
-- **Yellow** — moderate scores
-- **Red** — low-scoring columns (avoid)
+| Color | Meaning |
+|-------|---------|
+| <span style="color:red">Red</span> | Low score — avoid |
+| <span style="color:#FFD700">Yellow</span> | Moderate score |
+| <span style="color:green">Green</span> | High score — preferred |
 
-### Batch Stitched Results
+### Debug Images (with `--debug`)
 
-`batch_process.py` generates side-by-side composites: Original | Annotated | Heatmap.
-
-### Debug Images (with `--debug` flag)
-
-| File | Description |
-|---|---|
-| `debug/prefix_1_gray.jpg` | Grayscale conversion |
+| File | Stage |
+|------|-------|
+| `debug/prefix_1_gray.jpg` | After grayscale conversion |
 | `debug/prefix_2_blurred.jpg` | After Gaussian blur |
-| `debug/prefix_3_binary.jpg` | After Otsu binarization |
-| `debug/prefix_board.jpg` | Warped board region |
+| `debug/prefix_3_binary.jpg` | After Otsu threshold |
+| `debug/prefix_board.jpg` | Warped board region (445×617) |
 | `debug/prefix_next_region.jpg` | Warped next-piece region |
 | `debug/prefix_grid_mask.png` | Combined HSV block mask |
-| `debug/prefix_grid_overlay.jpg` | Grid with cell fill-ratio labels |
-| `debug/prefix_active_piece.jpg` | Active piece highlighted |
-| `debug/prefix_next_piece.jpg` | Next piece detection |
-| `debug/prefix_region_annotated.jpg` | Board/next region bounding boxes |
+| `debug/prefix_grid_overlay.jpg` | Grid with cell fill-ratio % |
+| `debug/prefix_active_piece.jpg` | Detected active piece |
+| `debug/prefix_next_piece.jpg` | Detected next piece |
 
 ---
 
 ## Project Structure
 
+```mermaid
+mindmap
+  root(("vision-Tetris"))
+    main.py
+    config.py
+    requirements.txt
+    src
+      preprocess.py
+      board_detector.py
+      grid_parser.py
+      piece_detector.py
+      move_generator.py
+      simulator.py
+      scorer.py
+      engine.py
+      visualizer.py
+    batch_process.py
+    test_single.py
+    test_validation.py
+    analyze_results.py
+    generate_figures.py
+    data
+      train
+      test
+      valid
+    doc
+      figures
+      tetris_advisor_report.pdf
+      tetris_advisor_report.docx
 ```
-vision-Tetris/
-├── main.py                          # Entry point, 7-stage pipeline
-├── config.py                        # Central configuration
-├── requirements.txt                 # Dependencies
-├── batch_process.py                 # Batch processing + stitching
-├── test_single.py                   # Single-image test with ground truth
-├── test_validation.py               # Batch validation against annotations
-├── analyze_results.py               # Validation analysis + statistics
-├── data/                            # Dataset
-│   ├── train/                       # Training images + _annotations.csv
-│   ├── test/                        # Test images
-│   └── valid/                       # Validation images
-├── input/                           # Input screenshots directory
-├── output/                          # Output directory
-│   ├── debug/                       # Intermediate DIP debug images
-│   ├── heatmap/                     # Heatmap images
-│   ├── video/                       # Video mode output
-│   └── results/                     # Batch stitched composites
-├── src/
-│   ├── preprocess.py                # Load, grayscale, blur, threshold
-│   ├── board_detector.py            # Perspective warp, region extraction
-│   ├── grid_parser.py               # HSV masking, grid parsing, validation
-│   ├── piece_detector.py            # Connected-components, pattern matching, Hu moments
-│   ├── move_generator.py            # Rotation generation, column validation
-│   ├── simulator.py                 # Drop physics, collision, line clear
-│   ├── scorer.py                    # Dellacherie 6-feature scoring
-│   ├── engine.py                    # Two-piece lookahead engine
-│   └── visualizer.py                # Annotation overlays, heatmap rendering
-├── tests/                           # Unit tests (empty — run via test_validation.py)
-└── *.md                             # Documentation files
-```
+
+### Module Map
+
+| Module | Role |
+|--------|------|
+| `main.py` | Entry point — orchestrates the 7-stage pipeline |
+| `config.py` | All tunable parameters in one place |
+| `src/preprocess.py` | Load, grayscale, Gaussian blur, Otsu |
+| `src/board_detector.py` | Perspective warp, board + next-piece extraction |
+| `src/grid_parser.py` | HSV masking, cell fill-ratio, 20×10 grid, validation |
+| `src/piece_detector.py` | Connected-components, pattern matching, Hu moments |
+| `src/move_generator.py` | rot90 rotations, dedup, column validation |
+| `src/simulator.py` | Gravity drop, collision, line clear |
+| `src/scorer.py` | Dellacherie 6-feature heuristic |
+| `src/engine.py` | Move evaluation, two-piece lookahead |
+| `src/visualizer.py` | Ghost piece, column highlight, heatmap |
+| `batch_process.py` | Batch all images → stitched composites |
+| `test_single.py` | Single-image test w/ optional ground truth |
+| `test_validation.py` | Full validation against annotations |
+| `analyze_results.py` | Stats, confusion matrix from validation CSV |
+| `generate_figures.py` | Generate all 19 report figures |
 
 ---
 
 ## Results
 
-On a validation set of 107 labeled training images, the system achieves:
+On a validation set of 107 labeled training images:
 
 | Metric | Value |
-|---|---|
-| Piece classification accuracy | ~100% |
-| Per-piecetype accuracy (I/O/J/L/S/T/Z) | ~100% across all types |
-| Pipeline latency | ~100-300ms per frame |
+|--------|-------|
+| Piece classification accuracy | **~100%** (107/107) |
+| Per-piecetype accuracy (I/O/J/L/S/T/Z) | **~100%** across all 7 types |
+| Pipeline latency | **~100–300 ms** per frame |
 
-Validation is run via:
+<div align="center">
+    <img src="doc/figures/FIG17_CONFUSION_MATRIX.png" alt="Confusion Matrix" width="45%">
+    <img src="doc/figures/FIG18_ACCURACY_CHART.png" alt="Accuracy Chart" width="45%">
+</div>
+
+<div align="center">
+    <img src="doc/figures/FIG19_TIMING_BREAKDOWN.png" alt="Timing Breakdown" width="70%">
+</div>
 
 ```bash
 .venv/bin/python test_validation.py --verbose --save-results
 ```
 
-Outputs per-class accuracy, confusion matrix, and saves `validation_results.csv`.
-
 ---
 
 ## Configuration
 
-All tunable parameters are in `config.py`:
+All tunable parameters live in `config.py`:
 
 | Parameter | Default | Description |
-|---|---|---|
-| `BOARD_CORNERS` | `(26,18), (471,18), (26,635), (471,635)` | Board region pixel coordinates |
-| `NEXT_PIECE_CORNERS` | `(470,440), (640,440), (470,630), (640,630)` | Next-piece preview region |
+|-----------|---------|-------------|
+| `BOARD_CORNERS` | `((26,18), (471,18), (26,635), (471,635))` | Board region pixel coordinates |
+| `NEXT_PIECE_CORNERS` | `((470,440), (640,440), (470,630), (640,630))` | Next-piece preview region |
 | `GAUSSIAN_BLUR_KERNEL` | `(5, 5)` | Blur kernel size |
 | `MIN_SATURATION` | `60` | Minimum S for colored blocks |
 | `MIN_VALUE` | `60` | Minimum V for colored blocks |
-| `MAX_SAT_GRAY` | `30` | Max S for gray/white blocks |
-| `MIN_VAL_GRAY` | `150` | Min V for gray/white blocks |
+| `MAX_SAT_GRAY` | `30` | Max S for gray/white (ghost) blocks |
+| `MIN_VAL_GRAY` | `150` | Min V for gray/white (ghost) blocks |
 | `HEATMAP_ALPHA` | `0.4` | Overlay opacity |
 | `FRAME_DIFF_THRESHOLD` | `15` | Frame change threshold for video mode |
 
 ---
 
-## Academic Context
+<div align="center">
 
-This project was developed as part of a Digital Image Processing (DIP) course. It demonstrates practical application of:
+**MIT License** — Built with Python, OpenCV, NumPy, and Matplotlib
 
-- Image preprocessing and enhancement
-- Color space analysis and segmentation
-- Geometric transformations
-- Morphological image processing
-- Shape analysis and feature extraction
-- Image compositing and visualization
-
----
-
-## License
-
-MIT
+</div>
